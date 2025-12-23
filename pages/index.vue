@@ -54,7 +54,6 @@
                 type="email"
                 required
                 class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="your@email.com"
               />
             </div>
 
@@ -62,14 +61,23 @@
               <label for="login-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password
               </label>
-              <input
-                id="login-password"
-                v-model="loginForm.password"
-                type="password"
-                required
-                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="••••••••"
-              />
+              <div class="relative">
+                <input
+                  id="login-password"
+                  v-model="loginForm.password"
+                  :type="showLoginPassword ? 'text' : 'password'"
+                  required
+                  class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                />
+                <button
+                  type="button"
+                  @click="showLoginPassword = !showLoginPassword"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <span v-if="showLoginPassword" class="text-xl">👁️</span>
+                  <span v-else class="text-xl">👁️‍🗨️</span>
+                </button>
+              </div>
             </div>
 
             <div class="flex items-center justify-between">
@@ -82,6 +90,11 @@
               </a>
             </div>
 
+            <!-- Error Message -->
+            <div v-if="loginError" class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ loginError }}</p>
+            </div>
+
             <button
               type="submit"
               class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
@@ -92,18 +105,31 @@
 
           <!-- Signup Form -->
           <form v-else @submit.prevent="handleSignup" class="space-y-6">
-            <div>
-              <label for="signup-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Full Name
-              </label>
-              <input
-                id="signup-name"
-                v-model="signupForm.name"
-                type="text"
-                required
-                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="John Doe"
-              />
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="signup-firstname" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Name
+                </label>
+                <input
+                  id="signup-firstname"
+                  v-model="signupForm.name"
+                  type="text"
+                  required
+                  class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                />
+              </div>
+              <div>
+                <label for="signup-lastname" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Surname
+                </label>
+                <input
+                  id="signup-lastname"
+                  v-model="signupForm.surname"
+                  type="text"
+                  required
+                  class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                />
+              </div>
             </div>
 
             <div>
@@ -116,7 +142,6 @@
                 type="email"
                 required
                 class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="your@email.com"
               />
             </div>
 
@@ -124,28 +149,46 @@
               <label for="signup-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password
               </label>
-              <input
-                id="signup-password"
-                v-model="signupForm.password"
-                type="password"
-                required
-                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="••••••••"
-              />
+              <div class="relative">
+                <input
+                  id="signup-password"
+                  v-model="signupForm.password"
+                  :type="showSignupPassword ? 'text' : 'password'"
+                  required
+                  class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                />
+                <button
+                  type="button"
+                  @click="showSignupPassword = !showSignupPassword"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <span v-if="showSignupPassword" class="text-xl">👁️</span>
+                  <span v-else class="text-xl">👁️‍🗨️</span>
+                </button>
+              </div>
             </div>
 
             <div>
               <label for="signup-confirm-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Confirm Password
               </label>
-              <input
-                id="signup-confirm-password"
-                v-model="signupForm.confirmPassword"
-                type="password"
-                required
-                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
-                placeholder="••••••••"
-              />
+              <div class="relative">
+                <input
+                  id="signup-confirm-password"
+                  v-model="signupForm.confirmPassword"
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  required
+                  class="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all"
+                />
+                <button
+                  type="button"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <span v-if="showConfirmPassword" class="text-xl">👁️</span>
+                  <span v-else class="text-xl">👁️‍🗨️</span>
+                </button>
+              </div>
             </div>
 
             <div>
@@ -155,9 +198,9 @@
               <div class="flex space-x-4">
                 <label class="flex-1 flex items-center p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-indigo-500 transition-all">
                   <input
-                    v-model="signupForm.userType"
+                    v-model="signupForm.role"
                     type="radio"
-                    value="user"
+                    value="USER"
                     class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                   />
                   <div class="ml-3">
@@ -167,9 +210,9 @@
                 </label>
                 <label class="flex-1 flex items-center p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-indigo-500 transition-all">
                   <input
-                    v-model="signupForm.userType"
+                    v-model="signupForm.role"
                     type="radio"
-                    value="doctor"
+                    value="DOCTOR"
                     class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                   />
                   <div class="ml-3">
@@ -180,11 +223,9 @@
               </div>
             </div>
 
-            <div class="flex items-center">
-              <input type="checkbox" required class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
-              <label class="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                I agree to the <a href="#" class="text-indigo-600 dark:text-indigo-400 hover:underline">Terms of Service</a> and <a href="#" class="text-indigo-600 dark:text-indigo-400 hover:underline">Privacy Policy</a>
-              </label>
+            <!-- Error Message -->
+            <div v-if="signupError" class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-400">{{ signupError }}</p>
             </div>
 
             <button
@@ -251,6 +292,14 @@
 
 <script setup lang="ts">
 const isLogin = ref(true)
+const config = useRuntimeConfig()
+
+const showLoginPassword = ref(false)
+const showSignupPassword = ref(false)
+const showConfirmPassword = ref(false)
+
+const loginError = ref('')
+const signupError = ref('')
 
 const loginForm = ref({
   email: '',
@@ -259,19 +308,85 @@ const loginForm = ref({
 
 const signupForm = ref({
   name: '',
+  surname: '',
   email: '',
   password: '',
   confirmPassword: '',
-  userType: 'user'
+  role: 'USER'
 })
 
-const handleLogin = () => {
-  console.log('Login attempted with:', loginForm.value)
-  // Backend integration will be added later
+const handleLogin = async () => {
+  loginError.value = ''
+  try {
+    const response = await $fetch(`${config.public.apiBaseUrl}/api/auth/login`, {
+      method: 'POST',
+      body: {
+        email: loginForm.value.email,
+        password: loginForm.value.password
+      }
+    }) as any
+    console.log('Login successful:', response)
+    
+    // Redirect based on user role
+    if (response.role === 'DOCTOR') {
+      navigateTo('/doctor')
+    } else {
+      navigateTo('/user')
+    }
+  } catch (error: any) {
+    console.error('Login failed:', error)
+    // Handle plain text error responses from backend
+    if (typeof error.data === 'string') {
+      loginError.value = error.data
+    } else if (error.data?.message) {
+      loginError.value = error.data.message
+    } else if (error.message) {
+      loginError.value = error.message
+    } else {
+      loginError.value = 'Login failed. Please try again.'
+    }
+  }
 }
 
-const handleSignup = () => {
-  console.log('Signup attempted with:', signupForm.value)
-  // Backend integration will be added later
+const handleSignup = async () => {
+  signupError.value = ''
+  
+  if (signupForm.value.password !== signupForm.value.confirmPassword) {
+    signupError.value = 'Passwords do not match'
+    return
+  }
+  
+  try {
+    const response = await $fetch(`${config.public.apiBaseUrl}/api/auth/signup`, {
+      method: 'POST',
+      body: {
+        name: signupForm.value.name,
+        surname: signupForm.value.surname,
+        email: signupForm.value.email,
+        password: signupForm.value.password,
+        role: signupForm.value.role
+      }
+    }) as any
+    console.log('Signup successful:', response)
+    
+    // Redirect based on user role
+    if (signupForm.value.role === 'DOCTOR') {
+      navigateTo('/doctor')
+    } else {
+      navigateTo('/user')
+    }
+  } catch (error: any) {
+    console.error('Signup failed:', error)
+    // Handle plain text error responses from backend
+    if (typeof error.data === 'string') {
+      signupError.value = error.data
+    } else if (error.data?.message) {
+      signupError.value = error.data.message
+    } else if (error.message) {
+      signupError.value = error.message
+    } else {
+      signupError.value = 'Signup failed. Please try again.'
+    }
+  }
 }
 </script>

@@ -12,5 +12,20 @@ export default defineNuxtConfig({
     '@nuxt/test-utils',
     '@nuxt/ui'
   ],
-  css: ['~/assets/css/app.css']
+  css: ['~/assets/css/app.css'],
+
+  runtimeConfig: {
+    public: {
+      apiBaseUrl: '' // Will be overridden by NUXT_PUBLIC_API_BASE_URL from .env
+    }
+  },
+
+  nitro: {
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:8080/api',
+        changeOrigin: true
+      }
+    }
+  }
 })
