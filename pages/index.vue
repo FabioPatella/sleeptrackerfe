@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+  <div v-if="!isCheckingAuth" class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
     <!-- Hero Section -->
     <div class="max-w-7xl mx-auto px-4 py-12">
       <div class="text-center mb-12">
@@ -291,8 +291,12 @@
 </template>
 
 <script setup lang="ts">
+import { useAuthStore } from '~/stores/auth'
+
 const isLogin = ref(true)
 const config = useRuntimeConfig()
+const isCheckingAuth = ref(true)
+const authStore = useAuthStore()
 
 const showLoginPassword = ref(false)
 const showSignupPassword = ref(false)
@@ -300,6 +304,23 @@ const showConfirmPassword = ref(false)
 
 const loginError = ref('')
 const signupError = ref('')
+
+// Check if user is already authenticated on page load
+onMounted(async () => {
+  const refreshed = await authStore.refresh()
+  
+  if (refreshed && authStore.user) {
+    // If refresh is successful, redirect based on user role
+    if (authStore.user.role === 'DOCTOR') {
+      navigateTo('/doctor')
+    } else if (authStore.user.role === 'USER') {
+      navigateTo('/user')
+    }
+  } else {
+    // No valid session, show login page
+    isCheckingAuth.value = false
+  }
+})
 
 const loginForm = ref({
   email: '',
@@ -320,6 +341,7 @@ const handleLogin = async () => {
   try {
     const response = await $fetch(`${config.public.apiBaseUrl}/api/auth/login`, {
       method: 'POST',
+      credentials: 'include',
       body: {
         email: loginForm.value.email,
         password: loginForm.value.password
@@ -327,8 +349,24 @@ const handleLogin = async () => {
     }) as any
     console.log('Login successful:', response)
     
+    // Store the access token and user info in the store
+    if (response.accessToken) {
+      authStore.setAccessToken(response.accessToken)
+    }
+    
+    // Extract user data from response
+    const userData = {
+      id: response.id || response.user?.id,
+      email: response.email || response.user?.email,
+      role: response.role || response.user?.role,
+      name: response.name || response.user?.name,
+      surname: response.surname || response.user?.surname,
+    }
+    console.log('User data:', userData)
+    authStore.setUser(userData)
+    
     // Redirect based on user role
-    if (response.role === 'DOCTOR') {
+    if (userData.role === 'DOCTOR') {
       navigateTo('/doctor')
     } else {
       navigateTo('/user')
@@ -359,6 +397,7 @@ const handleSignup = async () => {
   try {
     const response = await $fetch(`${config.public.apiBaseUrl}/api/auth/signup`, {
       method: 'POST',
+      credentials: 'include',
       body: {
         name: signupForm.value.name,
         surname: signupForm.value.surname,
@@ -369,8 +408,23 @@ const handleSignup = async () => {
     }) as any
     console.log('Signup successful:', response)
     
+    // Store the access token and user info in the store
+    if (response.accessToken) {
+      authStore.setAccessToken(response.accessToken)
+    }
+    
+    // Extract user data from response
+    const userData = {
+      id: response.id || response.user?.id,
+      email: response.email || response.user?.email,
+      role: response.role || response.user?.role || signupForm.value.role,
+      name: response.name || response.user?.name || signupForm.value.name,
+      surname: response.surname || response.user?.surname || signupForm.value.surname,
+    }
+    authStore.setUser(userData)
+    
     // Redirect based on user role
-    if (signupForm.value.role === 'DOCTOR') {
+    if (userData.role === 'DOCTOR') {
       navigateTo('/doctor')
     } else {
       navigateTo('/user')
