@@ -4,6 +4,18 @@
       Doctor Access Management
     </h2>
 
+    <!-- Loading State -->
+    <div v-if="loading" class="flex justify-center items-center py-8">
+      <LoadingSpinner />
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+      <p class="text-red-600 dark:text-red-400 text-sm">{{ error }}</p>
+    </div>
+
+    <!-- Content -->
+    <div v-else>
     <!-- Active Doctors -->
     <div class="mb-6">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">
@@ -22,10 +34,16 @@
             <span class="text-2xl">👨‍⚕️</span>
             <div>
               <div class="font-medium text-gray-900 dark:text-white">
-                Dr. {{ doctor.name }} {{ doctor.surname }}
+                {{ doctor.doctorName }}
               </div>
               <div class="text-sm text-gray-600 dark:text-gray-400">
-                {{ doctor.specialization }} • Access granted {{ doctor.accessDate }}
+                {{ doctor.doctorEmail }}
+              </div>
+              <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                Access granted {{ formatDate(doctor.respondedAt) }}
+              </div>
+              <div v-if="doctor.reason" class="text-xs text-gray-500 dark:text-gray-500 mt-1 italic">
+                Reason: {{ doctor.reason }}
               </div>
             </div>
           </div>
@@ -57,10 +75,16 @@
             <span class="text-2xl">👨‍⚕️</span>
             <div>
               <div class="font-medium text-gray-900 dark:text-white">
-                Dr. {{ request.name }} {{ request.surname }}
+                {{ request.doctorName }}
               </div>
               <div class="text-sm text-gray-600 dark:text-gray-400">
-                {{ request.specialization }} • Requested {{ request.requestDate }}
+                {{ request.doctorEmail }}
+              </div>
+              <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                Requested {{ formatDate(request.requestedAt) }}
+              </div>
+              <div v-if="request.reason" class="text-xs text-gray-500 dark:text-gray-500 mt-1 italic">
+                Reason: {{ request.reason }}
               </div>
             </div>
           </div>
@@ -73,7 +97,7 @@
             </button>
             <button
               @click="rejectRequest(request.id)"
-              class="flex-1 sm:flex-none px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-all text-sm"
+              class="flex-1 sm:flex-none px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-all text-sm"
             >
               Reject
             </button>
@@ -81,46 +105,116 @@
         </div>
       </div>
     </div>
+    </div>
+
+    <!-- Confirmation Dialog for Reject -->
+    <ConfirmationDialog
+      :show="showConfirmModal"
+      title="Reject Access Request?"
+      message="Are you sure you want to reject this access request? This action cannot be undone."
+      icon="⚠️"
+      confirm-text="Yes, Reject"
+      cancel-text="Cancel"
+      confirm-button-class="bg-red-600 hover:bg-red-700"
+      @confirm="confirmReject"
+      @cancel="cancelReject"
+    />
+
+    <!-- Confirmation Dialog for Revoke -->
+    <ConfirmationDialog
+      :show="showRevokeConfirmModal"
+      title="Revoke Doctor Access?"
+      message="Are you sure you want to revoke this doctor's access to your sleep data? They will no longer be able to view your information."
+      icon="⚠️"
+      confirm-text="Yes, Revoke"
+      cancel-text="Cancel"
+      confirm-button-class="bg-red-600 hover:bg-red-700"
+      @confirm="confirmRevoke"
+      @cancel="cancelRevoke"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-interface Doctor {
-  id: string
-  name: string
-  surname: string
-  specialization: string
-  accessDate: string
-}
-
-interface DoctorRequest {
-  id: string
-  name: string
-  surname: string
-  specialization: string
-  requestDate: string
+interface AccessRequest {
+  id: number
+  doctorId: number
+  doctorEmail: string
+  doctorName: string
+  patientId: number
+  patientEmail: string
+  patientName: string
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  reason: string | null
+  requestedAt: string
+  respondedAt: string | null
 }
 
 defineProps<{
-  activeDoctors: Doctor[]
-  pendingRequests: DoctorRequest[]
+  activeDoctors: AccessRequest[]
+  pendingRequests: AccessRequest[]
+  loading?: boolean
+  error?: string
 }>()
+
+const showConfirmModal = ref(false)
+const pendingRejectId = ref<number | null>(null)
+const showRevokeConfirmModal = ref(false)
+const pendingRevokeId = ref<number | null>(null)
 
 const emit = defineEmits<{
-  revokeAccess: [doctorId: string]
-  acceptRequest: [requestId: string]
-  rejectRequest: [requestId: string]
+  revokeAccess: [requestId: number]
+  acceptRequest: [requestId: number]
+  rejectRequest: [requestId: number]
 }>()
 
-const revokeAccess = (doctorId: string) => {
-  emit('revokeAccess', doctorId)
+const revokeAccess = (requestId: number) => {
+  pendingRevokeId.value = requestId
+  showRevokeConfirmModal.value = true
 }
 
-const acceptRequest = (requestId: string) => {
+const confirmRevoke = () => {
+  if (pendingRevokeId.value !== null) {
+    emit('revokeAccess', pendingRevokeId.value)
+  }
+  showRevokeConfirmModal.value = false
+  pendingRevokeId.value = null
+}
+
+const cancelRevoke = () => {
+  showRevokeConfirmModal.value = false
+  pendingRevokeId.value = null
+}
+
+const acceptRequest = (requestId: number) => {
   emit('acceptRequest', requestId)
 }
 
-const rejectRequest = (requestId: string) => {
-  emit('rejectRequest', requestId)
+const rejectRequest = (requestId: number) => {
+  pendingRejectId.value = requestId
+  showConfirmModal.value = true
+}
+
+const confirmReject = () => {
+  if (pendingRejectId.value !== null) {
+    emit('rejectRequest', pendingRejectId.value)
+  }
+  showConfirmModal.value = false
+  pendingRejectId.value = null
+}
+
+const cancelReject = () => {
+  showConfirmModal.value = false
+  pendingRejectId.value = null
+}
+
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return 'N/A'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric',
+    month: 'short', 
+    day: 'numeric'
+  })
 }
 </script>

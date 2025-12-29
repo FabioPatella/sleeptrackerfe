@@ -66,18 +66,25 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center items-center py-12">
+    <!-- Loading Overlay -->
+    <div v-if="loading && (statisticsData.length > 0 || singleDayData)" class="relative">
+      <div class="absolute inset-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+        <LoadingSpinner />
+      </div>
+    </div>
+
+    <!-- Loading State (when no data) -->
+    <div v-if="loading && !statisticsData.length && !singleDayData" class="flex justify-center items-center py-12 min-h-[400px]">
       <LoadingSpinner />
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mb-6">
+    <div v-else-if="error && !statisticsData.length && !singleDayData" class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mb-6 min-h-[400px] flex items-center justify-center">
       <p class="text-red-600 dark:text-red-400">{{ error }}</p>
     </div>
 
     <!-- Statistics Cards -->
-    <div v-else-if="statisticsData.length > 0" class="space-y-6">
+    <div v-if="statisticsData.length > 0 && !singleDayData" class="space-y-6 min-h-[400px]">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl">
           <div class="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
@@ -122,7 +129,7 @@
     </div>
 
     <!-- Single Day View -->
-    <div v-else-if="singleDayData" class="space-y-6">
+    <div v-if="singleDayData" class="space-y-6">
       <!-- Date Header -->
       <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl">
         <h3 class="text-xl font-bold text-gray-900 dark:text-white">
@@ -217,7 +224,15 @@
 
     <!-- No Data State -->
     <div v-else class="text-center py-12 text-gray-500 dark:text-gray-400">
-      No sleep data available for the selected period.
+      <template v-if="selectedPeriod === 'custom' && (!customFromDate || !customToDate)">
+        No period has been selected. Please select a date range.
+      </template>
+      <template v-else-if="selectedPeriod === 'singleday' && !singleDate">
+        No date has been selected. Please select a date.
+      </template>
+      <template v-else>
+        No sleep data available for the selected period.
+      </template>
     </div>
   </div>
 </template>
@@ -235,6 +250,10 @@ import {
   Legend,
   type ChartOptions
 } from 'chart.js'
+
+const props = defineProps<{
+  userId?: number
+}>()
 
 // Register Chart.js components
 ChartJS.register(
@@ -267,7 +286,7 @@ interface SingleDayData {
   intervals: SleepInterval[]
 }
 
-const selectedPeriod = ref('7weeks')
+const selectedPeriod = ref('1week')
 const customFromDate = ref('')
 const customToDate = ref('')
 const singleDate = ref(new Date().toISOString().split('T')[0])
@@ -280,7 +299,7 @@ const fetchAttempted = ref(false)
 let fetchController: AbortController | null = null
 
 const periods = [
-  { label: '7 Weeks', value: '7weeks' },
+  { label: '1 Week', value: '1week' },
   { label: '1 Month', value: '1month' },
   { label: '3 Months', value: '3months' },
   { label: 'Single Day', value: 'singleday' },
@@ -293,9 +312,9 @@ const getDateRange = (period: string): { fromDate: string; toDate: string } | nu
   let fromDate = ''
 
   switch (period) {
-    case '7weeks': {
+    case '1week': {
       const from = new Date()
-      from.setDate(from.getDate() - 49)
+      from.setDate(from.getDate() - 7)
       fromDate = from.toISOString().split('T')?.[0] || ''
       break
     }
@@ -328,6 +347,13 @@ const getDateRange = (period: string): { fromDate: string; toDate: string } | nu
 
 const selectPeriod = async (period: string) => {
   selectedPeriod.value = period
+  
+  // Clear data when switching to custom range or single day
+  if (period === 'custom' || period === 'singleday') {
+    statisticsData.value = []
+    singleDayData.value = null
+  }
+  
   if (period !== 'custom' && period !== 'singleday') {
     await fetchStatistics()
   } else if (period === 'singleday' && singleDate.value) {
@@ -357,21 +383,24 @@ const fetchStatistics = async () => {
 
   console.log('[SleepStatistics] Starting fetch for range:', dateRange)
   
-  // Reset data
-  statisticsData.value = []
-  singleDayData.value = null
-  
   fetchController = new AbortController()
   loading.value = true
   error.value = ''
 
   try {
+    const params: any = {
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate
+    }
+    
+    // Add userId if provided (for doctor viewing patient data)
+    if (props.userId) {
+      params.userId = props.userId
+    }
+    
     const data = await useAuthFetch<any>('/api/sleep-hours/statistics', {
       method: 'GET',
-      params: {
-        fromDate: dateRange.fromDate,
-        toDate: dateRange.toDate
-      }
+      params
     })
     
     console.log('[SleepStatistics] Fetch successful, data:', data)
@@ -379,8 +408,10 @@ const fetchStatistics = async () => {
     // Check if it's a single day response (has intervals property)
     if (data.intervals) {
       singleDayData.value = data
+      statisticsData.value = []
     } else {
       statisticsData.value = data
+      singleDayData.value = null
     }
     
     fetchAttempted.value = true

@@ -35,8 +35,11 @@
                 <input
                   v-model="patientSearch"
                   type="text"
-                  placeholder="Search patient by name or surname..."
+                  placeholder="Search patient by name or email..."
+                  autocomplete="off"
                   @input="handlePatientSearch"
+                  @focus="handleSearchFocus"
+                  @blur="handleSearchBlur"
                   class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
@@ -57,6 +60,7 @@
               <button
                 v-for="patient in filteredPatients"
                 :key="patient.id"
+                @mousedown.prevent
                 @click="selectPatient(patient)"
                 class="w-full text-left p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border-b border-gray-200 dark:border-gray-600 last:border-b-0"
               >
@@ -64,9 +68,12 @@
                   <span class="text-xl">😴</span>
                   <div>
                     <div class="font-medium text-gray-900 dark:text-white">
-                      {{ patient.name }} {{ patient.surname }}
+                      {{ patient.name }}
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-400">
+                      {{ patient.email }}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
                       Access granted: {{ patient.accessGrantedDate }}
                     </div>
                   </div>
@@ -80,10 +87,13 @@
                 <span class="text-2xl">😴</span>
                 <div class="flex-1">
                   <div class="font-medium text-gray-900 dark:text-white">
-                    Selected: {{ selectedPatient.name }} {{ selectedPatient.surname }}
+                    Selected: {{ selectedPatient.name }}
                   </div>
                   <div class="text-sm text-gray-600 dark:text-gray-400">
-                    Patient since {{ selectedPatient.accessGrantedDate }}
+                    {{ selectedPatient.email }}
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    Access granted: {{ selectedPatient.accessGrantedDate }}
                   </div>
                 </div>
               </div>
@@ -92,7 +102,7 @@
 
           <!-- Patient Statistics (Full Width) -->
           <div v-if="selectedPatient">
-            <SleepStatistics />
+            <SleepStatistics :user-id="selectedPatient.patientId" />
           </div>
           <div v-else class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
             <span class="text-6xl mb-4 block">🔍</span>
@@ -103,12 +113,16 @@
         </div>
 
         <!-- Request Access Tab -->
-        <div v-show="activeTab === 'requests'">
-          <div class="max-w-2xl mx-auto">
-            <AccessRequestForm
-              :pending-requests="pendingAccessRequests"
-              @submit="handleAccessRequestSubmit"
-            />
+        <div v-if="activeTab === 'requests'">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6">
+            <div class="max-w-4xl mx-auto">
+              <AccessRequestForm 
+                :initial-requests="accessRequests"
+                :loading="loadingAccessRequests"
+                :error="accessRequestsError"
+                @refresh="fetchAccessRequests"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -119,56 +133,71 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth'
 
+interface AccessRequest {
+  id: number
+  doctorId: number
+  doctorEmail: string
+  doctorName: string
+  patientId: number
+  patientEmail: string
+  patientName: string
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  reason: string | null
+  requestedAt: string
+  respondedAt: string | null
+}
+
 const authStore = useAuthStore()
 const activeTab = ref('patients')
 
-// Auth check is now handled by middleware - no need for onMounted logic
-
 const patientSearch = ref('')
 const showSearchResults = ref(false)
+const accessRequests = ref<AccessRequest[]>([])
+const loadingAccessRequests = ref(false)
+const accessRequestsError = ref('')
 
 const tabs = [
   { id: 'patients', label: 'My Patients', icon: '👥' },
   { id: 'requests', label: 'Request Access', icon: '📨' }
 ]
 
-// Hardcoded data for demonstration
-const patients = ref([
-  {
-    id: '1',
-    name: 'John',
-    surname: 'Doe',
-    accessGrantedDate: 'Dec 10, 2025'
-  },
-  {
-    id: '2',
-    name: 'Jane',
-    surname: 'Smith',
-    accessGrantedDate: 'Dec 15, 2025'
-  },
-  {
-    id: '3',
-    name: 'Robert',
-    surname: 'Williams',
-    accessGrantedDate: 'Dec 18, 2025'
-  },
-  {
-    id: '4',
-    name: 'Maria',
-    surname: 'Garcia',
-    accessGrantedDate: 'Dec 22, 2025'
-  }
-])
+// Compute available patients from accepted access requests
+const availablePatients = computed(() => {
+  return accessRequests.value
+    .filter(req => req.status === 'ACCEPTED')
+    .map(req => ({
+      id: req.id,
+      patientId: req.patientId,
+      name: req.patientName,
+      email: req.patientEmail,
+      accessGrantedDate: formatDate(req.respondedAt || '')
+    }))
+})
 
 const filteredPatients = computed(() => {
+  // Show all patients when search is focused but empty
+  if (showSearchResults.value && !patientSearch.value) {
+    return availablePatients.value
+  }
+  
   if (!patientSearch.value) return []
   
   const query = patientSearch.value.toLowerCase()
-  return patients.value.filter(patient =>
+  return availablePatients.value.filter(patient =>
     patient.name.toLowerCase().includes(query) ||
-    patient.surname.toLowerCase().includes(query)
+    patient.email.toLowerCase().includes(query)
   )
 })
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return 'N/A'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric',
+    month: 'short', 
+    day: 'numeric'
+  })
+}
 
 const selectedPatient = ref(null as any)
 
@@ -279,16 +308,41 @@ const selectedPatientLogs = computed(() => {
   return patientData[selectedPatient.value.id]?.logs || []
 })
 
+const fetchAccessRequests = async () => {
+  loadingAccessRequests.value = true
+  accessRequestsError.value = ''
+  
+  try {
+    const data = await useAuthFetch<AccessRequest[]>('/api/access/all', {
+      method: 'GET'
+    })
+    
+    accessRequests.value = data || []
+  } catch (err: any) {
+    accessRequestsError.value = err.data?.error || err.message || 'Failed to fetch access requests'
+  } finally {
+    loadingAccessRequests.value = false
+  }
+}
+
 const handlePatientSearch = () => {
-  showSearchResults.value = patientSearch.value.length > 0
+  showSearchResults.value = true
+}
+
+const handleSearchFocus = () => {
+  showSearchResults.value = true
+}
+
+const handleSearchBlur = () => {
+  showSearchResults.value = false
 }
 
 const selectPatient = (patient: any) => {
   selectedPatient.value = patient
-  patientSearch.value = `${patient.name} ${patient.surname}`
+  patientSearch.value = patient.name
   showSearchResults.value = false
   // TODO: Fetch patient data from API
-  // const data = await useAuthFetch(`/api/doctor/patients/${patient.id}/sleep-logs`)
+  // const data = await useAuthFetch(`/api/doctor/patients/${patient.patientId}/sleep-logs`)
 }
 
 const clearPatientSelection = () => {
@@ -297,28 +351,11 @@ const clearPatientSelection = () => {
   showSearchResults.value = false
 }
 
-const pendingAccessRequests = ref([
-  {
-    id: '1',
-    patientEmail: 'alice@example.com',
-    requestDate: 'Dec 25, 2025'
-  }
-])
+// Fetch access requests on page load
+onMounted(() => {
+  fetchAccessRequests()
+})
 
-const handleAccessRequestSubmit = (data: { patientEmail: string; reason: string }) => {
-  console.log('Access request submitted:', data)
-  // TODO: Call API with useAuthFetch
-  // const response = await useAuthFetch('/api/doctor/access-requests', {
-  //   method: 'POST',
-  //   body: data
-  // })
-  pendingAccessRequests.value.push({
-    id: Date.now().toString(),
-    patientEmail: data.patientEmail,
-    requestDate: 'Today'
-  })
-  alert('Access request sent! (This will be connected to the backend)')
-}
 definePageMeta({
   middleware: 'role'
 })

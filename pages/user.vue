@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
     <AppHeader 
-      title="User Dashboard" 
+      title="Sleeptracker Dashboard" 
       :subtitle="`Welcome back, ${authStore.user?.name || 'User'}!`" 
     />
     
@@ -51,6 +51,8 @@
           <DoctorAccessManagement
             :active-doctors="activeDoctors"
             :pending-requests="pendingRequests"
+            :loading="loadingAccessRequests"
+            :error="accessRequestsError"
             @revoke-access="handleRevokeAccess"
             @accept-request="handleAcceptRequest"
             @reject-request="handleRejectRequest"
@@ -138,32 +140,55 @@ const recentLogs = ref([
   }
 ])
 
-const activeDoctors = ref([
-  {
-    id: '1',
-    name: 'Sarah',
-    surname: 'Johnson',
-    specialization: 'Sleep Medicine',
-    accessDate: 'Dec 15, 2025'
-  },
-  {
-    id: '2',
-    name: 'Michael',
-    surname: 'Chen',
-    specialization: 'Neurology',
-    accessDate: 'Dec 20, 2025'
-  }
-])
+interface AccessRequest {
+  id: number
+  doctorId: number
+  doctorEmail: string
+  doctorName: string
+  patientId: number
+  patientEmail: string
+  patientName: string
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  reason: string | null
+  requestedAt: string
+  respondedAt: string | null
+}
 
-const pendingRequests = ref([
-  {
-    id: '1',
-    name: 'Emily',
-    surname: 'Rodriguez',
-    specialization: 'Psychology',
-    requestDate: 'Dec 26, 2025'
+const accessRequests = ref<AccessRequest[]>([])
+const loadingAccessRequests = ref(false)
+const accessRequestsError = ref('')
+
+const activeDoctors = computed(() => 
+  accessRequests.value.filter(req => req.status === 'ACCEPTED')
+)
+
+const pendingRequests = computed(() => 
+  accessRequests.value.filter(req => req.status === 'PENDING')
+)
+
+const fetchAccessRequests = async () => {
+  loadingAccessRequests.value = true
+  accessRequestsError.value = ''
+  
+  try {
+    const data = await useAuthFetch<AccessRequest[]>('/api/access/all', {
+      method: 'GET'
+    })
+    
+    accessRequests.value = data || []
+  } catch (err: any) {
+    accessRequestsError.value = err.data?.error || err.message || 'Failed to fetch access requests'
+  } finally {
+    loadingAccessRequests.value = false
   }
-])
+}
+
+// Watch activeTab to fetch data when doctors tab is opened
+watch(activeTab, (newTab) => {
+  if (newTab === 'doctors') {
+    fetchAccessRequests()
+  }
+})
 
 const handleSleepLogSubmit = async (data: any) => {
   try {
@@ -205,35 +230,57 @@ const handleSleepLogSubmit = async (data: any) => {
   }
 }
 
-const handleRevokeAccess = (doctorId: string) => {
-  console.log('Revoke access for doctor:', doctorId)
-  // TODO: Call API with useAuthFetch
-  activeDoctors.value = activeDoctors.value.filter(d => d.id !== doctorId)
-  alert('Doctor access revoked! (This will be connected to the backend)')
-}
-
-const handleAcceptRequest = (requestId: string) => {
-  console.log('Accept request:', requestId)
-  // TODO: Call API with useAuthFetch
-  const request = pendingRequests.value.find(r => r.id === requestId)
-  if (request) {
-    activeDoctors.value.push({
-      id: requestId,
-      name: request.name,
-      surname: request.surname,
-      specialization: request.specialization,
-      accessDate: 'Today'
+const handleRevokeAccess = async (requestId: number) => {
+  try {
+    await useAuthFetch(`/api/access/${requestId}`, {
+      method: 'DELETE'
     })
-    pendingRequests.value = pendingRequests.value.filter(r => r.id !== requestId)
+    
+    // Refresh the list
+    fetchAccessRequests()
+    
+    showNotification('Access revoked successfully', 'success')
+  } catch (err: any) {
+    showNotification(err.data?.error || err.message || 'Failed to revoke access', 'error')
   }
-  alert('Request accepted! (This will be connected to the backend)')
 }
 
-const handleRejectRequest = (requestId: string) => {
-  console.log('Reject request:', requestId)
-  // TODO: Call API with useAuthFetch
-  pendingRequests.value = pendingRequests.value.filter(r => r.id !== requestId)
-  alert('Request rejected! (This will be connected to the backend)')
+const handleAcceptRequest = async (requestId: number) => {
+  try {
+    await useAuthFetch('/api/access/respond', {
+      method: 'POST',
+      body: {
+        accessId: requestId,
+        accept: true
+      }
+    })
+    
+    // Refresh the list
+    fetchAccessRequests()
+    
+    showNotification('Request accepted successfully', 'success')
+  } catch (err: any) {
+    showNotification(err.data?.error || err.message || 'Failed to accept request', 'error')
+  }
+}
+
+const handleRejectRequest = async (requestId: number) => {
+  try {
+    await useAuthFetch('/api/access/respond', {
+      method: 'POST',
+      body: {
+        accessId: requestId,
+        accept: false
+      }
+    })
+    
+    // Refresh the list
+    fetchAccessRequests()
+    
+    showNotification('Request rejected successfully', 'success')
+  } catch (err: any) {
+    showNotification(err.data?.error || err.message || 'Failed to reject request', 'error')
+  }
 }
 definePageMeta({
   middleware: 'role'
