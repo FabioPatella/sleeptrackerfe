@@ -92,10 +92,7 @@
 
           <!-- Patient Statistics (Full Width) -->
           <div v-if="selectedPatient">
-            <SleepStatistics 
-              :stats="selectedPatientStats" 
-              :recent-logs="selectedPatientLogs" 
-            />
+            <SleepStatistics />
           </div>
           <div v-else class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
             <span class="text-6xl mb-4 block">🔍</span>

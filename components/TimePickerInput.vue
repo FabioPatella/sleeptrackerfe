@@ -18,13 +18,13 @@
         class="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg"
       >
         <button
-          v-for="h in 24"
-          :key="h - 1"
-          @mousedown.prevent="selectHour(String(h - 1).padStart(2, '0'))"
+          v-for="h in hoursList"
+          :key="h"
+          @mousedown.prevent="selectHour(String(h).padStart(2, '0'))"
           class="w-full px-3 py-2 text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 dark:text-white cursor-pointer"
-          :class="{ 'bg-indigo-50 dark:bg-indigo-950': String(h - 1).padStart(2, '0') === hours }"
+          :class="{ 'bg-indigo-50 dark:bg-indigo-950': String(h).padStart(2, '0') === hours }"
         >
-          {{ String(h - 1).padStart(2, '0') }}
+          {{ String(h).padStart(2, '0') }}
         </button>
       </div>
     </div>
@@ -73,6 +73,18 @@ const emit = defineEmits<{
 
 const showHourDropdown = ref(false)
 const showMinuteDropdown = ref(false)
+
+// Hours list starting from 20 (8 PM) to 19 (7 PM)
+const hoursList = computed(() => {
+  const hours = []
+  for (let i = 20; i < 24; i++) {
+    hours.push(i)
+  }
+  for (let i = 0; i < 20; i++) {
+    hours.push(i)
+  }
+  return hours
+})
 
 const hours = computed(() => {
   if (!props.modelValue || !props.modelValue.includes(':')) return ''

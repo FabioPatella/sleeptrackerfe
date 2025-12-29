@@ -16,6 +16,11 @@ interface AuthFetchOptions {
  * Automatically includes the access token in the Authorization header
  * If the request fails with 401, it will attempt to refresh the token and retry once
  */
+
+// Track if we're currently refreshing to prevent multiple simultaneous refresh attempts
+let isRefreshing = false
+let refreshPromise: Promise<boolean> | null = null
+
 export const useAuthFetch = async <T = any>(
   url: string,
   options: AuthFetchOptions = {}
@@ -42,33 +47,43 @@ export const useAuthFetch = async <T = any>(
     if (error.statusCode === 401 || error.status === 401 || error.statusCode === 403 || error.status === 403) {
       console.log('Access token expired or forbidden, attempting refresh...')
       
-      const refreshed = await authStore.refresh()
-      
-      if (refreshed) {
-        // Retry the request with the new token
-        try {
-          const response = await $fetch<T>(fullUrl, {
-            ...options,
-            credentials: 'include',
-            headers: {
-              ...options.headers,
-              Authorization: `Bearer ${authStore.accessToken}`,
-            },
-          })
-          return response
-        } catch (retryError: any) {
-          console.error('Retry after refresh failed:', retryError)
-          // If retry fails, redirect to login
-          authStore.clearAuth()
-          navigateTo('/')
-          throw retryError
-        }
+      // If already refreshing, wait for that to complete
+      if (isRefreshing && refreshPromise) {
+        await refreshPromise
       } else {
-        // Refresh failed, redirect to login
-        console.log('Token refresh failed, redirecting to login')
-        authStore.clearAuth()
-        navigateTo('/')
-        throw new Error('Authentication failed')
+        // Start a new refresh
+        isRefreshing = true
+        refreshPromise = authStore.refresh()
+        const refreshed = await refreshPromise
+        isRefreshing = false
+        refreshPromise = null
+        
+        if (!refreshed) {
+          // Refresh failed, redirect to login
+          console.log('Token refresh failed, redirecting to login')
+          authStore.clearAuth()
+          await navigateTo('/')
+          throw new Error('Authentication failed')
+        }
+      }
+      
+      // Retry the request with the new token (only once)
+      try {
+        const response = await $fetch<T>(fullUrl, {
+          ...options,
+          credentials: 'include',
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${authStore.accessToken}`,
+          },
+        })
+        return response
+      } catch (retryError: any) {
+        console.error('Retry after refresh failed:', retryError)
+        // If retry fails after successful refresh, it's not an auth issue
+        // It could be a permission error, validation error, or server error
+        // Just throw the error without clearing auth
+        throw retryError
       }
     }
     

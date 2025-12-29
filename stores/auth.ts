@@ -19,6 +19,9 @@ export const useAuthStore = defineStore('auth', {
     clearAuth() {
       this.accessToken = null
       this.user = null
+      // Clear the role cookie to ensure middleware redirects properly
+      const roleCookie = useCookie('role')
+      roleCookie.value = null
     },
 
     async logout() {

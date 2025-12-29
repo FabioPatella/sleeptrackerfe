@@ -27,7 +27,7 @@
       <!-- Tab Content -->
       <div class="space-y-6">
         <!-- Sleep Log Tab -->
-        <div v-show="activeTab === 'log'">
+        <div v-if="activeTab === 'log'">
           <SleepLogForm @submit="handleSleepLogSubmit">
             <template #notification>
               <NotificationToast 
@@ -42,12 +42,12 @@
         </div>
 
         <!-- Statistics Tab -->
-        <div v-show="activeTab === 'stats'">
-          <SleepStatistics :stats="statistics" :recent-logs="recentLogs" />
+        <div v-if="activeTab === 'stats'">
+          <SleepStatistics />
         </div>
 
         <!-- Doctors Tab -->
-        <div v-show="activeTab === 'doctors'">
+        <div v-if="activeTab === 'doctors'">
           <DoctorAccessManagement
             :active-doctors="activeDoctors"
             :pending-requests="pendingRequests"
