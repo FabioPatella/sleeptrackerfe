@@ -33,11 +33,19 @@
       </div>
 
       <!-- Editing Indicator -->
-      <div v-if="isEditMode && !loadingExistingData" class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
+      <div v-if="isEditMode && !loadingExistingData" class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 flex items-center justify-between">
         <p class="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
           <span>✏️</span>
           <span>Editing existing sleep log for this date</span>
         </p>
+        <button
+          type="button"
+          @click="showDeleteDialog = true"
+          class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all"
+          title="Delete this sleep log"
+        >
+          <span class="text-xl">🗑️</span>
+        </button>
       </div>
 
       <!-- Date Selection -->
@@ -158,16 +166,30 @@
         {{ isEditMode ? 'Update Sleep Log' : 'Save Sleep Log' }}
       </button>
     </form>
+
+    <!-- Confirmation Dialog -->
+    <ConfirmationDialog
+      :show="showDeleteDialog"
+      title="Delete Sleep Log?"
+      :message="`Are you sure you want to delete the sleep log for ${form.date}? This action cannot be undone.`"
+      icon="🗑️"
+      confirmText="Delete"
+      cancelText="Cancel"
+      confirmButtonClass="bg-red-600 hover:bg-red-700"
+      @confirm="handleDeleteLog"
+      @cancel="showDeleteDialog = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 const emit = defineEmits<{
   submit: [data: any]
+  deleted: [date: string]
 }>()
 
 const form = ref({
-  date: new Date().toISOString().split('T')[0],
+  date: new Date().toISOString().split('T')[0] as string,
   intervals: [
     { start: '', end: '', quality: null as number | null }
   ],
@@ -178,6 +200,7 @@ const showValidation = ref(false)
 const showInfo = ref(false)
 const isEditMode = ref(false)
 const loadingExistingData = ref(false)
+const showDeleteDialog = ref(false)
 
 // Watch for date changes and fetch existing data
 watch(() => form.value.date, async (newDate, oldDate) => {
@@ -323,7 +346,7 @@ const checkOverlap = (intervals: Array<{ start: string; end: string }>): { valid
 
 const validationError = ref('')
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   showValidation.value = true
   validationError.value = ''
   
@@ -380,4 +403,36 @@ const handleSubmit = () => {
   showValidation.value = false
   validationError.value = ''
 }
+
+const handleDeleteLog = async () => {
+  const dateToDelete = form.value.date
+  try {
+    await useAuthFetch(`/api/sleep-hours?date=${dateToDelete}`, {
+      method: 'DELETE'
+    })
+    
+    showDeleteDialog.value = false
+    
+    // Reset form after successful deletion
+    isEditMode.value = false
+    form.value.intervals = [{ start: '', end: '', quality: null }]
+    form.value.notes = ''
+    
+    // Emit deleted event to parent
+    emit('deleted', dateToDelete)
+  } catch (error: any) {
+    showDeleteDialog.value = false
+    console.error('Error deleting sleep log:', error)
+    // You might want to show an error notification here
+  }
+}
+
+// Expose method to refetch data (called by parent after successful save)
+const refetch = async () => {
+  await fetchExistingData(form.value.date)
+}
+
+defineExpose({
+  refetch
+})
 </script>

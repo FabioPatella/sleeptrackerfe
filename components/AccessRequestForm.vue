@@ -39,7 +39,7 @@
 
       <!-- Submit Success -->
       <div v-if="submitSuccess" class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
-        <p class="text-green-600 dark:text-green-400 text-sm">Access request sent successfully!</p>
+        <p class="text-green-600 dark:text-green-400 text-sm">{{ successMessage }}</p>
       </div>
 
       <button
@@ -62,40 +62,6 @@
     </div>
 
     <template v-else>
-    <!-- Pending Requests -->
-    <div v-if="pendingRequests.length > 0" class="mt-6">
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-        Pending Requests
-      </h3>
-      <div class="space-y-2">
-        <div
-          v-for="request in pendingRequests"
-          :key="request.id"
-          class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
-        >
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="font-medium text-gray-900 dark:text-white text-sm">
-                {{ request.patientName }}
-              </div>
-              <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                {{ request.patientEmail }}
-              </div>
-              <div class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Sent: {{ formatDate(request.requestedAt) }}
-              </div>
-              <div v-if="request.reason" class="text-xs text-gray-500 dark:text-gray-500 mt-1 italic">
-                Reason: {{ request.reason }}
-              </div>
-            </div>
-            <span class="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300 rounded-full">
-              Pending
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Accepted Requests -->
     <div v-if="acceptedRequests.length > 0" class="mt-6">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">
@@ -131,11 +97,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- No Requests State -->
-    <div v-if="pendingRequests.length === 0 && acceptedRequests.length === 0" class="mt-6 text-center py-8 text-gray-500 dark:text-gray-400">
-      No access requests yet
     </div>
     </template>
 
@@ -189,12 +150,9 @@ const allRequests = computed(() => props.initialRequests || [])
 const submitting = ref(false)
 const submitError = ref('')
 const submitSuccess = ref(false)
+const successMessage = ref('')
 const showRemoveConfirm = ref(false)
 const pendingRemoveId = ref<number | null>(null)
-
-const pendingRequests = computed(() => 
-  allRequests.value.filter(req => req.status === 'PENDING')
-)
 
 const acceptedRequests = computed(() => 
   allRequests.value.filter(req => req.status === 'ACCEPTED')
@@ -204,9 +162,10 @@ const handleSubmit = async () => {
   submitting.value = true
   submitError.value = ''
   submitSuccess.value = false
+  successMessage.value = ''
   
   try {
-    await useAuthFetch('/api/access/request', {
+    const response = await useAuthFetch<{ message?: string }>('/api/access/request', {
       method: 'POST',
       body: {
         patientEmail: form.value.patientEmail,
@@ -215,6 +174,7 @@ const handleSubmit = async () => {
     })
     
     submitSuccess.value = true
+    successMessage.value = response?.message || 'Access request sent successfully!'
     
     // Reset form
     form.value = {
@@ -228,6 +188,7 @@ const handleSubmit = async () => {
     // Clear success message after 3 seconds
     setTimeout(() => {
       submitSuccess.value = false
+      successMessage.value = ''
     }, 3000)
   } catch (err: any) {
     // Try to extract error from response body

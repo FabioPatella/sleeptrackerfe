@@ -313,7 +313,7 @@ const fetchAccessRequests = async () => {
   accessRequestsError.value = ''
   
   try {
-    const data = await useAuthFetch<AccessRequest[]>('/api/access/all', {
+    const data = await useAuthFetch<AccessRequest[]>('/api/access/patients', {
       method: 'GET'
     })
     

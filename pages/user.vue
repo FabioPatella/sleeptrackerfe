@@ -28,7 +28,11 @@
       <div class="space-y-6">
         <!-- Sleep Log Tab -->
         <div v-if="activeTab === 'log'">
-          <SleepLogForm @submit="handleSleepLogSubmit">
+          <SleepLogForm 
+            ref="sleepLogFormRef"
+            @submit="handleSleepLogSubmit"
+            @deleted="handleSleepLogDeleted"
+          >
             <template #notification>
               <NotificationToast 
                 :show="notification.show"
@@ -68,6 +72,7 @@ import { useAuthStore } from '~/stores/auth'
 
 const authStore = useAuthStore()
 const activeTab = ref('log')
+const sleepLogFormRef = ref<any>(null)
 const notification = ref<{ show: boolean; message: string; type: 'success' | 'error' | 'loading'; description?: string }>({ 
   show: false, 
   message: '', 
@@ -220,6 +225,11 @@ const handleSleepLogSubmit = async (data: any) => {
         'Your data is now available in the Statistics section.'
       )
     }, 100)
+    
+    // Refetch data to update edit mode
+    if (sleepLogFormRef.value) {
+      await sleepLogFormRef.value.refetch()
+    }
   } catch (error: any) {
     console.error('Error saving sleep log:', error)
     // Hide loading and show error
@@ -228,6 +238,14 @@ const handleSleepLogSubmit = async (data: any) => {
       showNotification(error.message || 'Failed to save sleep log', 'error')
     }, 100)
   }
+}
+
+const handleSleepLogDeleted = (date: string) => {
+  showNotification(
+    'Sleep log deleted successfully!',
+    'success',
+    `The sleep log for ${date} has been removed.`
+  )
 }
 
 const handleRevokeAccess = async (requestId: number) => {

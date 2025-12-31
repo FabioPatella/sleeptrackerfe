@@ -85,9 +85,9 @@
                 <input type="checkbox" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
                 <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Remember me</span>
               </label>
-              <a href="#" class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+              <NuxtLink to="/forgot-password" class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
                 Forgot password?
-              </a>
+              </NuxtLink>
             </div>
 
             <!-- Error Message -->
