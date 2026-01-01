@@ -14,8 +14,18 @@
 
       <!-- Main Content Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <!-- Login/Signup Forms - Shows first on mobile -->
+        <!-- Login/Signup Forms or Verification Notice - Shows first on mobile -->
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 order-1 lg:order-2">
+          
+          <!-- Email Verification Notice -->
+          <EmailVerificationNotice 
+            v-if="showVerificationNotice" 
+            :email="verificationEmail"
+            @back-to-login="showVerificationNotice = false; isLogin = true"
+          />
+          
+          <!-- Login/Signup Forms -->
+          <div v-else>
           <!-- Toggle Buttons -->
           <div class="flex space-x-2 mb-8 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
             <button
@@ -93,13 +103,30 @@
             <!-- Error Message -->
             <div v-if="loginError" class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <p class="text-sm text-red-600 dark:text-red-400">{{ loginError }}</p>
+              
+              <!-- Resend Verification Button -->
+              <button
+                v-if="showResendButton"
+                @click="handleResendVerification"
+                class="mt-3 w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-200 text-sm"
+              >
+                Resend Verification Email
+              </button>
             </div>
 
             <button
               type="submit"
-              class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              :disabled="isLoginLoading"
+              class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
             >
-              Sign In
+              <span v-if="isLoginLoading" class="flex items-center justify-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Signing In...
+              </span>
+              <span v-else>Sign In</span>
             </button>
           </form>
 
@@ -230,11 +257,20 @@
 
             <button
               type="submit"
-              class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              :disabled="isSignupLoading"
+              class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
             >
-              Create Account
+              <span v-if="isSignupLoading" class="flex items-center justify-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating Account...
+              </span>
+              <span v-else>Create Account</span>
             </button>
           </form>
+          </div>
         </div>
 
         <!-- Features Section - Shows second on mobile -->
@@ -304,6 +340,11 @@ const showConfirmPassword = ref(false)
 
 const loginError = ref('')
 const signupError = ref('')
+const showVerificationNotice = ref(false)
+const verificationEmail = ref('')
+const showResendButton = ref(false)
+const isLoginLoading = ref(false)
+const isSignupLoading = ref(false)
 
 // Check if user is already authenticated on page load
 onMounted(async () => {
@@ -338,6 +379,8 @@ const signupForm = ref({
 
 const handleLogin = async () => {
   loginError.value = ''
+  isLoginLoading.value = true
+  
   try {
     const response = await $fetch(`${config.public.apiBaseUrl}/api/auth/login`, {
       method: 'POST',
@@ -373,16 +416,33 @@ const handleLogin = async () => {
     }
   } catch (error: any) {
     console.error('Login failed:', error)
-    // Handle plain text error responses from backend
-    if (typeof error.data === 'string') {
-      loginError.value = error.data
-    } else if (error.data?.message) {
-      loginError.value = error.data.message
-    } else if (error.message) {
-      loginError.value = error.message
+    
+    // Check if it's an email verification error (403)
+    if (error.status === 403 || error.statusCode === 403) {
+      if (typeof error.data === 'string') {
+        loginError.value = error.data
+      } else if (error.data?.message) {
+        loginError.value = error.data.message
+      } else {
+        loginError.value = 'Please verify your email before logging in.'
+      }
+      showResendButton.value = true
+      verificationEmail.value = loginForm.value.email
     } else {
-      loginError.value = 'Login failed. Please try again.'
+      // Handle other errors
+      showResendButton.value = false
+      if (typeof error.data === 'string') {
+        loginError.value = error.data
+      } else if (error.data?.message) {
+        loginError.value = error.data.message
+      } else if (error.message) {
+        loginError.value = error.message
+      } else {
+        loginError.value = 'Login failed. Please try again.'
+      }
     }
+  } finally {
+    isLoginLoading.value = false
   }
 }
 
@@ -393,6 +453,8 @@ const handleSignup = async () => {
     signupError.value = 'Passwords do not match'
     return
   }
+  
+  isSignupLoading.value = true
   
   try {
     const response = await $fetch(`${config.public.apiBaseUrl}/api/auth/signup`, {
@@ -408,26 +470,18 @@ const handleSignup = async () => {
     }) as any
     console.log('Signup successful:', response)
     
-    // Store the access token and user info in the store
-    if (response.accessToken) {
-      authStore.setAccessToken(response.accessToken)
-    }
+    // Show verification notice instead of auto-login
+    verificationEmail.value = signupForm.value.email
+    showVerificationNotice.value = true
     
-    // Extract user data from response
-    const userData = {
-      id: response.id || response.user?.id,
-      email: response.email || response.user?.email,
-      role: response.role || response.user?.role || signupForm.value.role,
-      name: response.name || response.user?.name || signupForm.value.name,
-      surname: response.surname || response.user?.surname || signupForm.value.surname,
-    }
-    authStore.setUser(userData)
-    
-    // Redirect based on user role
-    if (userData.role === 'DOCTOR') {
-      navigateTo('/doctor')
-    } else {
-      navigateTo('/user')
+    // Clear the form
+    signupForm.value = {
+      name: '',
+      surname: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      role: 'USER'
     }
   } catch (error: any) {
     console.error('Signup failed:', error)
@@ -441,6 +495,33 @@ const handleSignup = async () => {
     } else {
       signupError.value = 'Signup failed. Please try again.'
     }
+  } finally {
+    isSignupLoading.value = false
+  }
+}
+
+const handleResendVerification = async () => {
+  loginError.value = ''
+  
+  try {
+    await $fetch(`${config.public.apiBaseUrl}/api/auth/resend-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: {
+        email: verificationEmail.value
+      }
+    })
+    
+    loginError.value = ''
+    showResendButton.value = false
+    // Show success message by switching to verification notice
+    showVerificationNotice.value = true
+    isLogin.value = false
+  } catch (error: any) {
+    console.error('Resend verification error:', error)
+    loginError.value = 'Failed to resend verification email. Please try again.'
   }
 }
 </script>

@@ -50,7 +50,7 @@
         </div>
 
         <!-- Reset Form -->
-        <div v-else-if="tokenStatus === 'valid' || tokenStatus === 'unchecked'">
+        <div v-else-if="tokenStatus === 'valid'">
           <div class="text-center mb-8">
             <div class="text-6xl mb-4">🔑</div>
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -216,18 +216,27 @@ const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
-const tokenStatus = ref<'unchecked' | 'checking' | 'valid' | 'invalid'>('unchecked')
+const tokenStatus = ref<'unchecked' | 'checking' | 'valid' | 'invalid'>('checking')
 const resetSuccess = ref(false)
 const countdown = ref(3)
 
 onMounted(async () => {
-  token.value = route.query.token as string || ''
+  // Extract token from URL
+  const urlToken = route.query.token as string || ''
   
-  if (!token.value) {
+  if (!urlToken) {
     tokenStatus.value = 'invalid'
     return
   }
 
+  // Store token in component state
+  token.value = urlToken
+  
+  // Clean the URL immediately using the History API
+  const cleanUrl = window.location.pathname
+  window.history.replaceState({}, document.title, cleanUrl)
+  
+  // Validate token before showing the form
   await validateToken()
 })
 

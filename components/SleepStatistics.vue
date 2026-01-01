@@ -58,7 +58,7 @@
       </div>
       <div class="sm:col-span-2">
         <button
-          @click="fetchStatistics"
+          @click="applyCustomRange"
           class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
           Apply Custom Range
@@ -130,6 +130,19 @@
 
     <!-- Single Day View -->
     <div v-if="singleDayData" class="space-y-6">
+      <!-- Check if there are no intervals -->
+      <div v-if="!singleDayData.intervals || singleDayData.intervals.length === 0" class="text-center py-12">
+        <div class="text-6xl mb-4">😴</div>
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          No Sleep Data Available
+        </h3>
+        <p class="text-gray-600 dark:text-gray-400">
+          No sleep records found for {{ formatFullDate(singleDayData.date) }}
+        </p>
+      </div>
+      
+      <!-- Show data if intervals exist -->
+      <template v-else>
       <!-- Date Header -->
       <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl">
         <h3 class="text-xl font-bold text-gray-900 dark:text-white">
@@ -220,18 +233,30 @@
           </div>
         </div>
       </div>
+      </template>
     </div>
 
     <!-- No Data State -->
-    <div v-else class="text-center py-12 text-gray-500 dark:text-gray-400">
+    <div v-else-if="!loading && !statisticsData.length && !singleDayData" class="text-center py-12 text-gray-500 dark:text-gray-400">
       <template v-if="selectedPeriod === 'custom' && (!customFromDate || !customToDate)">
-        No period has been selected. Please select a date range.
+        <div class="text-5xl mb-4">📅</div>
+        <p class="text-lg font-medium mb-2">No period has been selected.</p>
+        <p class="text-sm">Please select a date range above.</p>
+      </template>
+      <template v-else-if="selectedPeriod === 'custom' && customFromDate && customToDate && !customRangeApplied">
+        <div class="text-5xl mb-4">👆</div>
+        <p class="text-lg font-medium mb-2">Date range selected</p>
+        <p class="text-sm">Click "Apply Custom Range" to view statistics.</p>
       </template>
       <template v-else-if="selectedPeriod === 'singleday' && !singleDate">
-        No date has been selected. Please select a date.
+        <div class="text-5xl mb-4">📅</div>
+        <p class="text-lg font-medium mb-2">No date has been selected.</p>
+        <p class="text-sm">Please select a date above.</p>
       </template>
-      <template v-else>
-        No sleep data available for the selected period.
+      <template v-else-if="fetchAttempted">
+        <div class="text-5xl mb-4">😴</div>
+        <p class="text-lg font-medium mb-2">No sleep data available</p>
+        <p class="text-sm">No sleep records found for the selected period.</p>
       </template>
     </div>
   </div>
@@ -296,6 +321,7 @@ const statisticsData = ref<SleepStatisticsData[]>([])
 const singleDayData = ref<SingleDayData | null>(null)
 const isAuthError = ref(false)
 const fetchAttempted = ref(false)
+const customRangeApplied = ref(false)
 let fetchController: AbortController | null = null
 
 const periods = [
@@ -348,6 +374,9 @@ const getDateRange = (period: string): { fromDate: string; toDate: string } | nu
 const selectPeriod = async (period: string) => {
   selectedPeriod.value = period
   
+  // Reset custom range applied flag when switching periods
+  customRangeApplied.value = false
+  
   // Clear data when switching to custom range or single day
   if (period === 'custom' || period === 'singleday') {
     statisticsData.value = []
@@ -359,6 +388,11 @@ const selectPeriod = async (period: string) => {
   } else if (period === 'singleday' && singleDate.value) {
     await fetchStatistics()
   }
+}
+
+const applyCustomRange = async () => {
+  customRangeApplied.value = true
+  await fetchStatistics()
 }
 
 const fetchStatistics = async () => {
